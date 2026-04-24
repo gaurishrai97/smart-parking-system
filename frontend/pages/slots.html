@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Parking Slots — SmartPark</title>
+  <link rel="stylesheet" href="/public/css/style.css">
+</head>
+<body>
+<nav class="navbar">
+  <a href="/index.html" class="logo">Smart<span>Park</span></a>
+  <div class="nav-links">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="slots.html" class="active">Book Slot</a>
+    <a href="my-bookings.html">My Bookings</a>
+    <span id="admin-link" style="display:none"><a href="admin.html">Admin</a></span>
+  </div>
+  <div id="nav-user"></div>
+</nav>
+
+<main class="page">
+  <div class="page-header">
+    <h1>Parking Slots</h1>
+    <p>Click an available slot to book it</p>
+  </div>
+
+  <!-- Legend -->
+  <div style="display:flex;gap:1.25rem;flex-wrap:wrap;margin-bottom:1.5rem">
+    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem">
+      <div style="width:14px;height:14px;border-radius:4px;background:rgba(34,197,94,0.2);border:1px solid rgba(34,197,94,0.4)"></div>Available
+    </div>
+    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem">
+      <div style="width:14px;height:14px;border-radius:4px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4)"></div>Occupied
+    </div>
+    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem">
+      <div style="width:14px;height:14px;border-radius:4px;background:rgba(245,158,11,0.2);border:1px solid rgba(245,158,11,0.4)"></div>Reserved
+    </div>
+    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem">
+      <div style="width:14px;height:14px;border-radius:4px;background:rgba(100,116,139,0.2);border:1px solid rgba(100,116,139,0.4)"></div>Maintenance
+    </div>
+  </div>
+
+  <div class="grid-2" style="gap:1.5rem">
+    <!-- Slot Grid -->
+    <div>
+      <div id="slots-container"><div class="loading-center"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- Booking panel -->
+    <div class="card" style="position:sticky;top:80px;height:fit-content">
+      <h3 style="font-size:1rem;margin-bottom:1.25rem">Book Selected Slot</h3>
+      <div id="selected-slot-info" style="margin-bottom:1.25rem">
+        <div style="color:var(--muted);font-size:0.875rem">← Select an available slot from the grid</div>
+      </div>
+      <div id="book-alert"></div>
+      <div class="form-group">
+        <label>Vehicle Number</label>
+        <input type="text" id="b-vehicle" placeholder="UP32 AB 1234" style="text-transform:uppercase">
+      </div>
+      <div class="form-group">
+        <label>Vehicle Type</label>
+        <select id="b-vtype">
+          <option value="car">🚗 Car</option>
+          <option value="bike">🏍️ Bike</option>
+          <option value="truck">🚛 Truck</option>
+          <option value="ev">⚡ EV</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Booking Type</label>
+        <select id="b-btype">
+          <option value="walkin">Walk-In (immediate entry)</option>
+          <option value="reserved">Reserve (hold slot)</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" style="width:100%" id="book-btn" onclick="confirmBooking()" disabled>
+        Select a Slot First
+      </button>
+    </div>
+  </div>
+</main>
+
+<script src="/public/js/api.js"></script>
+<script src="/public/js/utils.js"></script>
+<script>
+  requireAuth();
+  const user = getUser();
+  if (user?.role === 'admin') document.getElementById('admin-link').style.display = '';
+  if (user?.vehicleNumber) document.getElementById('b-vehicle').value = user.vehicleNumber;
+
+  let selectedSlot = null;
+
+  async function loadSlots() {
+    const container = document.getElementById('slots-container');
+    try {
+      const slots = await Slots.getAll();
+      const floors = [...new Set(slots.map(s => s.floor))].sort();
+
+      container.innerHTML = floors.map(floor => `
+        <div class="floor-label">Floor ${floor}</div>
+        <div class="slot-grid" style="margin-bottom:1.25rem">
+          ${slots.filter(s => s.floor === floor).map(s => `
+            <div class="slot-card ${s.status} ${selectedSlot?._id === s._id ? 'selected' : ''}"
+                 data-id="${s._id}" onclick="selectSlot(${JSON.stringify(s).replace(/"/g,'&quot;')})">
+              <div class="slot-icon">${slotIcon(s.type)}</div>
+              <div style="font-size:0.7rem;font-weight:700">${s.slotNumber}</div>
+              <div style="font-size:0.6rem;color:var(--muted)">${s.type}</div>
+            </div>`).join('')}
+        </div>`).join('');
+    } catch(e) {
+      container.innerHTML = `<div class="alert alert-error">Failed to load slots: ${e.message}</div>`;
+    }
+  }
+
+  function selectSlot(slot) {
+    if (slot.status !== 'available') return;
+    selectedSlot = slot;
+    document.querySelectorAll('.slot-card').forEach(el => {
+      el.classList.toggle('selected', el.dataset.id === slot._id);
+    });
+    document.getElementById('selected-slot-info').innerHTML = `
+      <div style="background:var(--surface2);border-radius:10px;padding:1rem;display:flex;gap:1rem;align-items:center">
+        <div style="font-size:2rem">${slotIcon(slot.type)}</div>
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:800">${slot.slotNumber}</div>
+          <div style="font-size:0.8rem;color:var(--muted)">Floor ${slot.floor} · ${slot.type} · ₹${slot.pricePerHour}/hr</div>
+        </div>
+      </div>`;
+    const btn = document.getElementById('book-btn');
+    btn.disabled = false;
+    btn.textContent = `Book ${slot.slotNumber}`;
+  }
+
+  async function confirmBooking() {
+    if (!selectedSlot) return;
+    const vehicleNumber = document.getElementById('b-vehicle').value.trim().toUpperCase();
+    const vehicleType   = document.getElementById('b-vtype').value;
+    const bookingType   = document.getElementById('b-btype').value;
+    const alertEl = document.getElementById('book-alert');
+    if (!vehicleNumber) { alertEl.innerHTML = '<div class="alert alert-error">Enter vehicle number</div>'; return; }
+    const btn = document.getElementById('book-btn');
+    btn.disabled = true; btn.textContent = 'Booking…';
+    try {
+      await Bookings.create({ slotId: selectedSlot._id, vehicleNumber, vehicleType, bookingType });
+      showToast('Booking confirmed! 🎉');
+      selectedSlot = null;
+      document.getElementById('selected-slot-info').innerHTML = '<div style="color:var(--muted);font-size:0.875rem">← Select an available slot from the grid</div>';
+      alertEl.innerHTML = '';
+      btn.disabled = true; btn.textContent = 'Select a Slot First';
+      loadSlots();
+    } catch(e) {
+      alertEl.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      btn.disabled = false; btn.textContent = `Book ${selectedSlot.slotNumber}`;
+    }
+  }
+
+  loadSlots();
+  setInterval(loadSlots, 20000);
+</script>
+</body>
+</html>

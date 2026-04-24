@@ -1,0 +1,23 @@
+# render.yaml — Backend deployment on Render (free tier)
+# Place this in your backend/ folder root
+
+services:
+  - type: web
+    name: smart-parking-api
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGO_URI
+        fromDatabase:
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        value: https://your-vercel-app.vercel.app  # update after Vercel deploy

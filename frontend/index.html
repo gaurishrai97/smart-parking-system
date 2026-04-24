@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartPark — Intelligent Parking Management</title>
+  <link rel="stylesheet" href="/public/css/style.css" />
+  <style>
+    body { overflow-x: hidden; }
+    .hero {
+      min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr;
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: ''; position: absolute; inset: 0; z-index: 0;
+      background: radial-gradient(ellipse 80% 60% at 20% 50%, rgba(0,229,255,0.07) 0%, transparent 60%),
+                  radial-gradient(ellipse 60% 80% at 80% 20%, rgba(124,58,237,0.08) 0%, transparent 60%);
+    }
+    .hero-left {
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 4rem 3rem 4rem 5rem; position: relative; z-index: 1;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.2);
+      border-radius: 999px; padding: 0.35rem 1rem; font-size: 0.75rem;
+      color: var(--accent); letter-spacing: 1px; text-transform: uppercase;
+      margin-bottom: 2rem; width: fit-content;
+    }
+    .hero-title { font-size: clamp(2.5rem, 5vw, 3.75rem); line-height: 1.1; margin-bottom: 1.25rem; }
+    .hero-title span { color: var(--accent); }
+    .hero-sub { color: var(--muted); font-size: 1.05rem; max-width: 440px; line-height: 1.7; margin-bottom: 2.5rem; }
+    .hero-stats { display: flex; gap: 2.5rem; }
+    .hero-stat .val { font-family: 'Syne', sans-serif; font-size: 1.75rem; font-weight: 800; color: var(--accent); }
+    .hero-stat .lbl { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+    /* Floating lot visual */
+    .lot-visual {
+      display: flex; align-items: center; justify-content: center;
+      position: relative; z-index: 1; padding: 2rem;
+    }
+    .lot-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 24px; padding: 2rem; width: 100%; max-width: 360px;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.5); position: relative;
+    }
+    .lot-box::after {
+      content: ''; position: absolute; inset: -1px; border-radius: 24px;
+      background: linear-gradient(135deg, rgba(0,229,255,0.15), transparent 50%);
+      pointer-events: none; z-index: -1;
+    }
+    .lot-title { font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; }
+    .mini-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; }
+    .mini-slot {
+      aspect-ratio: 1; border-radius: 6px; transition: all 0.3s;
+      display: grid; place-items: center; font-size: 0.6rem;
+    }
+    .ms-avail  { background: rgba(34,197,94,0.2);  border: 1px solid rgba(34,197,94,0.4); }
+    .ms-occ    { background: rgba(239,68,68,0.2);  border: 1px solid rgba(239,68,68,0.4); }
+    .ms-res    { background: rgba(245,158,11,0.2); border: 1px solid rgba(245,158,11,0.4); }
+    .lot-legend { display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--muted); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* Auth panel */
+    .auth-panel {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+      display: none; place-items: center; z-index: 300;
+    }
+    .auth-panel.open { display: grid; }
+    .auth-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 24px; padding: 2.5rem; width: 90%; max-width: 420px;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.6); animation: popIn 0.25s ease;
+    }
+    @keyframes popIn { from { opacity:0; transform:scale(0.95) } to { opacity:1; transform:scale(1) } }
+    .auth-logo { font-family: 'Syne',sans-serif; font-size: 1.1rem; font-weight: 800; color: var(--accent); margin-bottom: 1.75rem; }
+    .auth-tabs { display: flex; gap: 0; background: var(--surface2); border-radius: 10px; overflow: hidden; margin-bottom: 1.75rem; }
+    .auth-tab { flex: 1; padding: 0.6rem; text-align: center; font-size: 0.875rem; font-weight: 500; cursor: pointer; color: var(--muted); border: none; background: none; font-family: 'DM Sans',sans-serif; transition: all 0.2s; }
+    .auth-tab.active { background: var(--surface); color: var(--text); }
+    .auth-form { display: none; }
+    .auth-form.active { display: block; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+    .close-auth { position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.5rem; }
+
+    @media (max-width: 768px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero-left { padding: 5rem 1.5rem 2rem; text-align: center; }
+      .hero-sub { max-width: 100%; }
+      .hero-stats { justify-content: center; }
+      .lot-visual { padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="logo">Smart<span>Park</span></div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#how">How it works</a>
+  </div>
+  <div id="nav-user">
+    <button class="btn btn-secondary btn-sm" onclick="openAuth('login')">Login</button>
+    <button class="btn btn-primary btn-sm" onclick="openAuth('signup')">Get Started</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-left">
+    <div class="hero-badge">🚀 Smart Parking System v1.0</div>
+    <h1 class="hero-title">Find Your Spot.<br><span>Instantly.</span></h1>
+    <p class="hero-sub">A real-time intelligent parking management platform. Book slots, track vehicles, and monitor your lot — all from one dashboard.</p>
+    <div style="display:flex;gap:1rem;margin-bottom:3rem;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="openAuth('signup')" style="font-size:1rem;padding:0.8rem 2rem">
+        Reserve a Spot →
+      </button>
+      <button class="btn btn-secondary" onclick="openAuth('login')" style="font-size:1rem;padding:0.8rem 2rem">
+        Sign In
+      </button>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="val">30</div><div class="lbl">Total Slots</div></div>
+      <div class="hero-stat"><div class="val">3</div><div class="lbl">Floors</div></div>
+      <div class="hero-stat"><div class="val">24/7</div><div class="lbl">Monitoring</div></div>
+    </div>
+  </div>
+
+  <div class="lot-visual">
+    <div class="lot-box">
+      <div class="lot-title">Live Parking Status · Ground Floor</div>
+      <div class="mini-grid" id="demo-grid"></div>
+      <div class="lot-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Available</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Occupied</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Reserved</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AUTH MODAL -->
+<div class="auth-panel" id="auth-panel">
+  <div class="auth-box" style="position:relative">
+    <button class="close-auth" onclick="closeAuth()">×</button>
+    <div class="auth-logo">SmartPark 🅿️</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Login</button>
+      <button class="auth-tab" id="tab-signup" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div class="auth-form active" id="form-login">
+      <div id="login-alert"></div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="••••••••" />
+      </div>
+      <button class="btn btn-primary" style="width:100%" id="login-btn" onclick="doLogin()">Login</button>
+    </div>
+
+    <!-- SIGNUP -->
+    <div class="auth-form" id="form-signup">
+      <div id="signup-alert"></div>
+      <div class="grid-2" style="gap:1rem">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="reg-name" placeholder="John Doe" />
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="tel" id="reg-phone" placeholder="+91 9999999999" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label>Vehicle Number</label>
+        <input type="text" id="reg-vehicle" placeholder="UP32 AB 1234" style="text-transform:uppercase" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="reg-password" placeholder="Min 6 characters" />
+      </div>
+      <button class="btn btn-primary" style="width:100%" id="signup-btn" onclick="doSignup()">Create Account</button>
+    </div>
+  </div>
+</div>
+
+<script src="/public/js/api.js"></script>
+<script src="/public/js/utils.js"></script>
+<script>
+  // Demo grid animation
+  const statuses = ['ms-avail','ms-avail','ms-avail','ms-occ','ms-occ','ms-avail','ms-res','ms-avail','ms-occ','ms-avail'];
+  const icons    = ['🚗','','','🚗','🚗','','','🚗','🚗',''];
+  const grid = document.getElementById('demo-grid');
+  statuses.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = `mini-slot ${s}`;
+    d.textContent = icons[i];
+    grid.appendChild(d);
+  });
+  // Animate a random slot every 2s
+  setInterval(() => {
+    const slots = grid.querySelectorAll('.mini-slot');
+    const idx = Math.floor(Math.random() * slots.length);
+    const s = slots[idx];
+    const classes = ['ms-avail','ms-occ','ms-res'];
+    s.className = 'mini-slot ' + classes[Math.floor(Math.random()*3)];
+  }, 2000);
+
+  // If already logged in, redirect
+  if (Auth.isLoggedIn()) {
+    const user = getUser();
+    window.location.href = user?.role === 'admin' ? '/pages/admin.html' : '/pages/dashboard.html';
+  }
+
+  function openAuth(tab) {
+    document.getElementById('auth-panel').classList.add('open');
+    switchTab(tab);
+  }
+  function closeAuth() { document.getElementById('auth-panel').classList.remove('open'); }
+  function switchTab(t) {
+    ['login','signup'].forEach(x => {
+      document.getElementById('tab-'+x).classList.toggle('active', x===t);
+      document.getElementById('form-'+x).classList.toggle('active', x===t);
+    });
+  }
+
+  async function doLogin() {
+    const email    = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const alertEl  = document.getElementById('login-alert');
+    const btn      = document.getElementById('login-btn');
+    alertEl.innerHTML = '';
+    if (!email || !password) { alertEl.innerHTML = '<div class="alert alert-error">Fill all fields</div>'; return; }
+    btn.disabled = true; btn.textContent = 'Logging in…';
+    try {
+      const user = await Auth.login(email, password);
+      showToast('Welcome back, ' + user.name + '!');
+      setTimeout(() => { window.location.href = user.role === 'admin' ? '/pages/admin.html' : '/pages/dashboard.html'; }, 600);
+    } catch (e) {
+      alertEl.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      btn.disabled = false; btn.textContent = 'Login';
+    }
+  }
+
+  async function doSignup() {
+    const alertEl = document.getElementById('signup-alert');
+    const btn     = document.getElementById('signup-btn');
+    alertEl.innerHTML = '';
+    const payload = {
+      name: document.getElementById('reg-name').value.trim(),
+      email: document.getElementById('reg-email').value.trim(),
+      password: document.getElementById('reg-password').value,
+      phone: document.getElementById('reg-phone').value.trim(),
+      vehicleNumber: document.getElementById('reg-vehicle').value.trim().toUpperCase(),
+    };
+    if (!payload.name || !payload.email || !payload.password) {
+      alertEl.innerHTML = '<div class="alert alert-error">Name, email & password are required</div>'; return;
+    }
+    btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      const user = await Auth.register(payload);
+      showToast('Account created! Welcome, ' + user.name);
+      setTimeout(() => { window.location.href = '/pages/dashboard.html'; }, 600);
+    } catch (e) {
+      alertEl.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      btn.disabled = false; btn.textContent = 'Create Account';
+    }
+  }
+
+  // Enter key support
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      if (document.getElementById('form-login').classList.contains('active')) doLogin();
+      else doSignup();
+    }
+  });
+</script>
+</body>
+</html>

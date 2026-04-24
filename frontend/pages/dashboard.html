@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — SmartPark</title>
+  <link rel="stylesheet" href="/public/css/style.css" />
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/index.html" class="logo">Smart<span>Park</span></a>
+  <div class="nav-links">
+    <a href="dashboard.html" class="active">Dashboard</a>
+    <a href="slots.html">Book Slot</a>
+    <a href="my-bookings.html">My Bookings</a>
+    <span id="admin-link" style="display:none"><a href="admin.html">Admin</a></span>
+  </div>
+  <div id="nav-user"></div>
+</nav>
+
+<main class="page">
+  <div class="page-header">
+    <h1 id="greeting">Welcome back 👋</h1>
+    <p>Here's your parking overview</p>
+  </div>
+
+  <!-- Slot Stats -->
+  <div class="grid-4" id="stats-grid" style="margin-bottom:2rem">
+    <div class="stat-card"><div class="stat-label">Total Slots</div><div class="stat-value" id="s-total">—</div><div class="stat-icon">🅿️</div></div>
+    <div class="stat-card" style="--accent-tint:rgba(34,197,94,0.08)"><div class="stat-label">Available</div><div class="stat-value" style="color:var(--success)" id="s-avail">—</div><div class="stat-icon">✅</div></div>
+    <div class="stat-card" style="--accent-tint:rgba(239,68,68,0.08)"><div class="stat-label">Occupied</div><div class="stat-value" style="color:var(--danger)" id="s-occ">—</div><div class="stat-icon">🚗</div></div>
+    <div class="stat-card" style="--accent-tint:rgba(245,158,11,0.08)"><div class="stat-label">Reserved</div><div class="stat-value" style="color:var(--warning)" id="s-res">—</div><div class="stat-icon">🔒</div></div>
+  </div>
+
+  <div class="grid-2" style="gap:1.5rem">
+    <!-- Active booking -->
+    <div class="card">
+      <h3 style="margin-bottom:1.25rem;font-size:1rem">Your Active Booking</h3>
+      <div id="active-booking-container"><div class="loading-center"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- Quick book -->
+    <div class="card">
+      <h3 style="margin-bottom:1.25rem;font-size:1rem">Quick Book</h3>
+      <div id="quick-alert"></div>
+      <div class="form-group">
+        <label>Select Available Slot</label>
+        <select id="quick-slot"><option value="">Loading slots…</option></select>
+      </div>
+      <div class="form-group">
+        <label>Vehicle Number</label>
+        <input type="text" id="quick-vehicle" placeholder="UP32 AB 1234" style="text-transform:uppercase" />
+      </div>
+      <div class="form-group">
+        <label>Vehicle Type</label>
+        <select id="quick-vtype">
+          <option value="car">🚗 Car</option>
+          <option value="bike">🏍️ Bike</option>
+          <option value="truck">🚛 Truck</option>
+          <option value="ev">⚡ EV</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:0.75rem">
+        <button class="btn btn-secondary" onclick="bookSlot('walkin')">Walk-In Entry</button>
+        <button class="btn btn-primary" onclick="bookSlot('reserved')">Reserve Slot</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent bookings -->
+  <div class="card" style="margin-top:1.5rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+      <h3 style="font-size:1rem">Recent Activity</h3>
+      <a href="my-bookings.html" class="btn btn-secondary btn-sm">View All</a>
+    </div>
+    <div id="recent-container"><div class="loading-center"><div class="spinner"></div></div></div>
+  </div>
+</main>
+
+<script src="/public/js/api.js"></script>
+<script src="/public/js/utils.js"></script>
+<script>
+  requireAuth();
+  const user = getUser();
+  if (user?.role === 'admin') document.getElementById('admin-link').style.display = '';
+  document.getElementById('greeting').textContent = `Welcome back, ${user?.name?.split(' ')[0]} 👋`;
+  const vInput = document.getElementById('quick-vehicle');
+  if (user?.vehicleNumber) vInput.value = user.vehicleNumber;
+
+  async function loadStats() {
+    try {
+      const s = await Slots.getStats();
+      document.getElementById('s-total').textContent = s.total;
+      document.getElementById('s-avail').textContent = s.available;
+      document.getElementById('s-occ').textContent   = s.occupied;
+      document.getElementById('s-res').textContent   = s.reserved;
+    } catch(e) {}
+  }
+
+  async function loadAvailableSlots() {
+    try {
+      const slots = await Slots.getAvailable();
+      const sel = document.getElementById('quick-slot');
+      sel.innerHTML = slots.length
+        ? slots.map(s => `<option value="${s._id}">${s.slotNumber} · Floor ${s.floor} · ${s.type} · ₹${s.pricePerHour}/hr</option>`).join('')
+        : '<option value="">No slots available</option>';
+    } catch(e) {}
+  }
+
+  async function loadActiveBooking() {
+    const el = document.getElementById('active-booking-container');
+    try {
+      const bookings = await Bookings.my();
+      const active = bookings.find(b => b.status === 'active');
+      if (!active) {
+        el.innerHTML = `<div class="empty-state" style="padding:2rem"><div class="empty-icon">🅿️</div><p>No active booking. Book a slot above!</p></div>`;
+        return;
+      }
+      el.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:1rem">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800">${active.slot?.slotNumber || '—'}</div>
+              <div style="color:var(--muted);font-size:0.8rem">Floor ${active.slot?.floor}</div>
+            </div>
+            <span class="badge badge-active">Active</span>
+          </div>
+          <div class="grid-2" style="gap:0.75rem;font-size:0.875rem">
+            <div><span style="color:var(--muted)">Vehicle: </span>${active.vehicleNumber}</div>
+            <div><span style="color:var(--muted)">Type: </span>${active.bookingType}</div>
+            <div><span style="color:var(--muted)">Entry: </span>${fmtDate(active.entryTime)}</div>
+            <div><span style="color:var(--muted)">Rate: </span>₹${active.slot?.pricePerHour}/hr</div>
+          </div>
+          <button class="btn btn-danger" style="width:fit-content" onclick="checkout('${active._id}')">🔴 Check Out</button>
+        </div>`;
+    } catch(e) {
+      el.innerHTML = '<div class="alert alert-error">Failed to load booking</div>';
+    }
+  }
+
+  async function loadRecent() {
+    const el = document.getElementById('recent-container');
+    try {
+      const bookings = (await Bookings.my()).slice(0, 5);
+      if (!bookings.length) { el.innerHTML = `<div class="empty-state" style="padding:1.5rem"><p>No bookings yet</p></div>`; return; }
+      el.innerHTML = `
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Slot</th><th>Vehicle</th><th>Entry</th><th>Exit</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody>
+            ${bookings.map(b => `
+              <tr>
+                <td><strong>${b.slot?.slotNumber || '—'}</strong></td>
+                <td>${b.vehicleNumber}</td>
+                <td style="font-size:0.8rem">${fmtDate(b.entryTime)}</td>
+                <td style="font-size:0.8rem">${fmtDate(b.exitTime)}</td>
+                <td>${b.totalAmount ? fmtCurrency(b.totalAmount) : '—'}</td>
+                <td><span class="badge badge-${b.status}">${b.status}</span></td>
+              </tr>`).join('')}
+          </tbody>
+        </table></div>`;
+    } catch(e) {
+      el.innerHTML = '<div class="alert alert-error">Failed to load</div>';
+    }
+  }
+
+  async function bookSlot(type) {
+    const slotId = document.getElementById('quick-slot').value;
+    const vehicleNumber = document.getElementById('quick-vehicle').value.trim().toUpperCase();
+    const vehicleType   = document.getElementById('quick-vtype').value;
+    const alertEl = document.getElementById('quick-alert');
+    if (!slotId) { alertEl.innerHTML = '<div class="alert alert-error">Select a slot</div>'; return; }
+    if (!vehicleNumber) { alertEl.innerHTML = '<div class="alert alert-error">Enter vehicle number</div>'; return; }
+    try {
+      await Bookings.create({ slotId, vehicleNumber, vehicleType, bookingType: type });
+      showToast('Booking confirmed! 🎉');
+      alertEl.innerHTML = '';
+      loadStats(); loadAvailableSlots(); loadActiveBooking(); loadRecent();
+    } catch(e) {
+      alertEl.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    }
+  }
+
+  async function checkout(id) {
+    if (!confirm('Confirm check-out?')) return;
+    try {
+      const b = await Bookings.checkout(id);
+      showToast(`Checked out! Duration: ${b.duration}h · ${fmtCurrency(b.totalAmount)}`);
+      loadStats(); loadAvailableSlots(); loadActiveBooking(); loadRecent();
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  loadStats(); loadAvailableSlots(); loadActiveBooking(); loadRecent();
+  setInterval(() => { loadStats(); loadAvailableSlots(); }, 30000);
+</script>
+</body>
+</html>
