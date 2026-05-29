@@ -3,7 +3,7 @@
 // =============================================
 const API_BASE = window.location.hostname === "localhost"
   ? "http://localhost:5000/api"
-  :  "https://smart-parking-api-aomu.onrender.com/api";← update after deploying backend
+  :  "https://smart-parking-api-aomu.onrender.com/api";← update after deploying 
 
 // ---- Helpers ----
 const getToken = () => localStorage.getItem("sps_token");
