@@ -79,3 +79,34 @@ const Admin = {
   setRole:    (id, role)   => apiFetch(`/admin/users/${id}/role`, { method: "PUT", headers: authHeaders(), body: JSON.stringify({ role }) }),
   deleteUser: (id)         => apiFetch(`/admin/users/${id}`, { method: "DELETE", headers: authHeaders() }),
 };
+const Auth = {
+  async login(email, password) {
+    const data = await api.post("/auth/login", {
+      email,
+      password
+    });
+
+    localStorage.setItem("sps_token", data.token);
+    localStorage.setItem("sps_user", JSON.stringify(data.user));
+
+    return data.user;
+  },
+
+  async register(payload) {
+    const data = await api.post("/auth/register", payload);
+
+    localStorage.setItem("sps_token", data.token);
+    localStorage.setItem("sps_user", JSON.stringify(data.user));
+
+    return data.user;
+  },
+
+  isLoggedIn() {
+    return !!localStorage.getItem("sps_token");
+  },
+
+  logout() {
+    localStorage.removeItem("sps_token");
+    localStorage.removeItem("sps_user");
+  }
+};
