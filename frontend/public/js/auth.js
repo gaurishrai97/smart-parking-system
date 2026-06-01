@@ -1,4 +1,4 @@
-console.log("AUTH FILE WORKING");
+
 console.log("auth.js loaded");
 const API_BASE =
   window.location.hostname === "localhost"
