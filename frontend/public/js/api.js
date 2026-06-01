@@ -1,42 +1,33 @@
-// =============================================
-// CONFIG — change BASE_URL when you deploy
-// =============================================
-const API_BASE = window.location.hostname === "localhost"
-  ? "http://localhost:5000/api"
-  : "https://smart-parking-api-aomu.onrender.com/api";
+const API_BASE =
+  window.location.hostname === "localhost"
+    ? "http://localhost:5000/api"
+    : "https://smart-parking-api-aomu.onrender.com/api";
 
-// ---- Helpers ----
 const getToken = () => localStorage.getItem("sps_token");
+const getUser = () => JSON.parse(localStorage.getItem("sps_user");
 
-const getUser = () =>
-  JSON.parse(localStorage.getItem("sps_user") || "null");
+window.Auth = {
+  async login(email, password) {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    });
 
-const authHeaders = () => ({
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${getToken()}`,
-});
+    const data = await res.json();
 
-// =============================================
-// API FETCH
-// =============================================
-async function apiFetch(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, options);
+    if (!res.ok) throw new Error(data.message);
 
-  const data = await res.json();
+    localStorage.setItem("sps_token", data.token);
+    localStorage.setItem("sps_user", JSON.stringify(data.user));
 
-  if (!res.ok) {
-    throw new Error(data.message || "API error");
-  }
+    return data.user;
+  },
 
-  return data;
-}
-
-// =============================================
-// AUTH
-// =============================================
-const Auth = {
   async register(payload) {
-    const data = await apiFetch("/auth/register", {
+    const res = await fetch(`${API_BASE}/auth/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -44,141 +35,17 @@ const Auth = {
       body: JSON.stringify(payload),
     });
 
-    localStorage.setItem("sps_token", data.token);
-    localStorage.setItem("sps_user", JSON.stringify(data.user || data));
+    const data = await res.json();
 
-    return data.user || data;
-  },
-
-  async login(email, password) {
-    const data = await apiFetch("/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        password,
-      }),
-    });
+    if (!res.ok) throw new Error(data.message);
 
     localStorage.setItem("sps_token", data.token);
-    localStorage.setItem("sps_user", JSON.stringify(data.user || data));
+    localStorage.setItem("sps_user", JSON.stringify(data.user));
 
-    return data.user || data;
-  },
-
-  logout() {
-    localStorage.removeItem("sps_token");
-    localStorage.removeItem("sps_user");
-
-    window.location.href = "/index.html";
+    return data.user;
   },
 
   isLoggedIn() {
     return !!getToken();
   },
-
-  isAdmin() {
-    return getUser()?.role === "admin";
-  },
-};
-
-// =============================================
-// SLOTS
-// =============================================
-const Slots = {
-  getAll: () => apiFetch("/slots"),
-
-  getAvailable: () => apiFetch("/slots/available"),
-
-  getStats: () => apiFetch("/slots/stats"),
-
-  seed: () =>
-    apiFetch("/slots/seed", {
-      method: "POST",
-      headers: authHeaders(),
-    }),
-
-  update: (id, body) =>
-    apiFetch(`/slots/${id}`, {
-      method: "PUT",
-      headers: authHeaders(),
-      body: JSON.stringify(body),
-    }),
-
-  create: (body) =>
-    apiFetch("/slots", {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(body),
-    }),
-
-  delete: (id) =>
-    apiFetch(`/slots/${id}`, {
-      method: "DELETE",
-      headers: authHeaders(),
-    }),
-};
-
-// =============================================
-// BOOKINGS
-// =============================================
-const Bookings = {
-  create: (body) =>
-    apiFetch("/bookings", {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(body),
-    }),
-
-  checkout: (id) =>
-    apiFetch(`/bookings/${id}/checkout`, {
-      method: "PUT",
-      headers: authHeaders(),
-    }),
-
-  my: () =>
-    apiFetch("/bookings/my", {
-      headers: authHeaders(),
-    }),
-
-  all: () =>
-    apiFetch("/bookings", {
-      headers: authHeaders(),
-    }),
-
-  stats: () =>
-    apiFetch("/bookings/stats", {
-      headers: authHeaders(),
-    }),
-
-  cancel: (id) =>
-    apiFetch(`/bookings/${id}`, {
-      method: "DELETE",
-      headers: authHeaders(),
-    }),
-};
-
-// =============================================
-// ADMIN
-// =============================================
-const Admin = {
-  getUsers: () =>
-    apiFetch("/admin/users", {
-      headers: authHeaders(),
-    }),
-
-  setRole: (id, role) =>
-    apiFetch(`/admin/users/${id}/role`, {
-      method: "PUT",
-      headers: authHeaders(),
-      body: JSON.stringify({ role }),
-    }),
-
-  deleteUser: (id) =>
-    apiFetch(`/admin/users/${id}`, {
-      method: "DELETE",
-      headers: authHeaders(),
-    }),
 };
