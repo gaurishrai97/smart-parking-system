@@ -1,5 +1,5 @@
-
 console.log("auth.js loaded");
+
 const API_BASE =
   window.location.hostname === "localhost"
     ? "http://localhost:5000/api"
@@ -26,18 +26,11 @@ window.Auth = {
   async login(email, password) {
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Login failed");
-    }
-
+    if (!response.ok) throw new Error(data.message || "Login failed");
     saveAuth(data.token, data.user);
     return data.user;
   },
@@ -45,18 +38,11 @@ window.Auth = {
   async register(payload) {
     const response = await fetch(`${API_BASE}/auth/register`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Signup failed");
-    }
-
+    if (!response.ok) throw new Error(data.message || "Signup failed");
     saveAuth(data.token, data.user);
     return data.user;
   },
@@ -68,5 +54,6 @@ window.Auth = {
   logout() {
     localStorage.removeItem("sps_token");
     localStorage.removeItem("sps_user");
+    window.location.href = "/index.html";
   },
 };
