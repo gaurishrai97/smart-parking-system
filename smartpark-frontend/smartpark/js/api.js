@@ -28,23 +28,34 @@ async function req(path, options = {}) {
 
 // ── Auth ─────────────────────────────────────────────────
 window.Auth = {
-  async login(email, password) {
-    const data = await req("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
-    saveAuth(data.token, data.user);
-    return data.user;
-  },
+ async login(email, password) {
+  const response = await fetch(`${API_BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || "Login failed");
 
-  async register(payload) {
-    const data = await req("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    saveAuth(data.token, data.user);
-    return data.user;
-  },
+  const user = data.user || data.data || data;
+  saveAuth(data.token, user);
+  return user;
+},
+
+ async register(payload) {
+  const response = await fetch(`${API_BASE}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || "Signup failed");
+  
+  // handle both {token, user} and {token, data} response shapes
+  const user = data.user || data.data || data;
+  saveAuth(data.token, user);
+  return user;
+},
 
   isLoggedIn() { return !!getToken(); },
 
