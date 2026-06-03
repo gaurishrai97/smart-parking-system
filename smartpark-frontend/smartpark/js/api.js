@@ -26,36 +26,38 @@ async function req(path, options = {}) {
   return data;
 }
 
+// Extract user from any backend response shape
+// Handles: {token, user}, {token, data}, {token, name, email, ...}
+function extractUser(data) {
+  if (data.user && typeof data.user === "object") return data.user;
+  if (data.data && typeof data.data === "object") return data.data;
+  // backend returned flat user fields alongside token
+  const { token, ...rest } = data;
+  if (rest.name || rest.email) return rest;
+  return data;
+}
+
 // ── Auth ─────────────────────────────────────────────────
 window.Auth = {
- async login(email, password) {
-  const response = await fetch(`${API_BASE}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.message || "Login failed");
+  async login(email, password) {
+    const data = await req("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+    const user = extractUser(data);
+    saveAuth(data.token, user);
+    return user;
+  },
 
-  const user = data.user || data.data || data;
-  saveAuth(data.token, user);
-  return user;
-},
-
- async register(payload) {
-  const response = await fetch(`${API_BASE}/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.message || "Signup failed");
-  
-  // handle both {token, user} and {token, data} response shapes
-  const user = data.user || data.data || data;
-  saveAuth(data.token, user);
-  return user;
-},
+  async register(payload) {
+    const data = await req("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    const user = extractUser(data);
+    saveAuth(data.token, user);
+    return user;
+  },
 
   isLoggedIn() { return !!getToken(); },
 
@@ -73,28 +75,28 @@ window.Auth = {
 
 // ── Slots ─────────────────────────────────────────────────
 window.Slots = {
-  getAll()              { return req("/slots"); },
-  getAvailable()        { return req("/slots/available"); },
-  getStats()            { return req("/slots/stats"); },
-  create(payload)       { return req("/slots", { method: "POST", body: JSON.stringify(payload) }); },
-  update(id, payload)   { return req(`/slots/${id}`, { method: "PUT", body: JSON.stringify(payload) }); },
-  delete(id)            { return req(`/slots/${id}`, { method: "DELETE" }); },
-  seed()                { return req("/slots/seed", { method: "POST" }); },
+  getAll()            { return req("/slots"); },
+  getAvailable()      { return req("/slots/available"); },
+  getStats()          { return req("/slots/stats"); },
+  create(payload)     { return req("/slots", { method: "POST", body: JSON.stringify(payload) }); },
+  update(id, payload) { return req(`/slots/${id}`, { method: "PUT", body: JSON.stringify(payload) }); },
+  delete(id)          { return req(`/slots/${id}`, { method: "DELETE" }); },
+  seed()              { return req("/slots/seed", { method: "POST" }); },
 };
 
 // ── Bookings ──────────────────────────────────────────────
 window.Bookings = {
-  my()           { return req("/bookings/my"); },
-  all()          { return req("/bookings"); },
-  create(payload){ return req("/bookings", { method: "POST", body: JSON.stringify(payload) }); },
-  checkout(id)   { return req(`/bookings/${id}/checkout`, { method: "PUT" }); },
-  cancel(id)     { return req(`/bookings/${id}/cancel`, { method: "PUT" }); },
+  my()            { return req("/bookings/my"); },
+  all()           { return req("/bookings"); },
+  create(payload) { return req("/bookings", { method: "POST", body: JSON.stringify(payload) }); },
+  checkout(id)    { return req(`/bookings/${id}/checkout`, { method: "PUT" }); },
+  cancel(id)      { return req(`/bookings/${id}/cancel`, { method: "PUT" }); },
 };
 
 // ── Admin ─────────────────────────────────────────────────
 window.Admin = {
-  getStats()         { return req("/admin/stats"); },
-  getUsers()         { return req("/admin/users"); },
-  setRole(id, role)  { return req(`/admin/users/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) }); },
-  deleteUser(id)     { return req(`/admin/users/${id}`, { method: "DELETE" }); },
+  getStats()        { return req("/admin/stats"); },
+  getUsers()        { return req("/admin/users"); },
+  setRole(id, role) { return req(`/admin/users/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) }); },
+  deleteUser(id)    { return req(`/admin/users/${id}`, { method: "DELETE" }); },
 };
