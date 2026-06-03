@@ -10,7 +10,8 @@ const app = express();
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    "https://smart-parking-system-eosin.vercel.app"  // paste your URL here
+    "https://smart-parking-system-eosin.vercel.app",
+    "https://smart-parking-system-4tpz5itbk-gaurish-rai-s-projects.vercel.app"
   ],
   credentials: true
 }));
