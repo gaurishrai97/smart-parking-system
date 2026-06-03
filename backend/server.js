@@ -7,10 +7,12 @@ dotenv.config();
 connectDB();
 
 const app = express();
-
 app.use(cors({
-  origin: process.env.CLIENT_URL || "*",
-  credentials: true,
+  origin: [
+    "http://localhost:3000",
+    "https://smart-parking-system-eosin.vercel.app"  // paste your URL here
+  ],
+  credentials: true
 }));
 app.use(express.json());
 
