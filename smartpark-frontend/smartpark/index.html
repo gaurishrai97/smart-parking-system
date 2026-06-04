@@ -48,6 +48,7 @@
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 20px; padding: 2.5rem; width: 90%; max-width: 420px;
       box-shadow: 0 32px 64px rgba(0,0,0,0.5); animation: fadeUp 0.25s ease;
+      position: relative;
     }
     @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
     .close-auth {
@@ -109,8 +110,8 @@
   </div>
 </section>
 
-<div class="auth-panel" id="auth-panel">
-  <div class="auth-box" style="position:relative">
+<div class="auth-panel" id="auth-panel" onclick="handleOverlayClick(event)">
+  <div class="auth-box" onclick="event.stopPropagation()">
     <button class="close-auth" onclick="closeAuth()">×</button>
     <div class="auth-logo">SmartPark 🅿️</div>
     <div class="auth-tabs">
@@ -119,19 +120,25 @@
     </div>
     <div class="auth-form active" id="form-login">
       <div id="login-alert"></div>
-      <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com" /></div>
-      <div class="form-group"><label>Password</label><input type="password" id="login-password" placeholder="••••••••" /></div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
       <button class="btn btn-primary" style="width:100%" id="login-btn" onclick="doLogin()">Login</button>
     </div>
     <div class="auth-form" id="form-signup">
       <div id="signup-alert"></div>
       <div class="grid-2" style="gap:1rem">
-        <div class="form-group"><label>Full Name</label><input type="text" id="reg-name" placeholder="John Doe" /></div>
-        <div class="form-group"><label>Phone</label><input type="tel" id="reg-phone" placeholder="+91 9999999999" /></div>
+        <div class="form-group"><label>Full Name</label><input type="text" id="reg-name" placeholder="John Doe" autocomplete="name" /></div>
+        <div class="form-group"><label>Phone</label><input type="tel" id="reg-phone" placeholder="+91 9999999999" autocomplete="tel" /></div>
       </div>
-      <div class="form-group"><label>Email</label><input type="email" id="reg-email" placeholder="you@example.com" /></div>
+      <div class="form-group"><label>Email</label><input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email" /></div>
       <div class="form-group"><label>Vehicle Number</label><input type="text" id="reg-vehicle" placeholder="UP32 AB 1234" style="text-transform:uppercase" /></div>
-      <div class="form-group"><label>Password</label><input type="password" id="reg-password" placeholder="Min 6 characters" /></div>
+      <div class="form-group"><label>Password</label><input type="password" id="reg-password" placeholder="Min 6 characters" autocomplete="new-password" /></div>
       <button class="btn btn-primary" style="width:100%" id="signup-btn" onclick="doSignup()">Create Account</button>
     </div>
   </div>
@@ -162,8 +169,19 @@
     window.location.href = user?.role === 'admin' ? 'pages/admin.html' : 'pages/dashboard.html';
   }
 
-  function openAuth(tab)  { document.getElementById('auth-panel').classList.add('open'); switchTab(tab); }
-  function closeAuth()    { document.getElementById('auth-panel').classList.remove('open'); }
+  function openAuth(tab) {
+    document.getElementById('auth-panel').classList.add('open');
+    switchTab(tab);
+  }
+
+  function closeAuth() {
+    document.getElementById('auth-panel').classList.remove('open');
+  }
+
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById('auth-panel')) closeAuth();
+  }
+
   function switchTab(t) {
     ['login','signup'].forEach(x => {
       document.getElementById('tab-'+x).classList.toggle('active', x===t);
@@ -172,17 +190,19 @@
   }
 
   async function doLogin() {
-    const email = document.getElementById('login-email').value.trim();
+    const email    = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
-    const alertEl = document.getElementById('login-alert');
-    const btn = document.getElementById('login-btn');
+    const alertEl  = document.getElementById('login-alert');
+    const btn      = document.getElementById('login-btn');
     alertEl.innerHTML = '';
     if (!email || !password) { alertEl.innerHTML = '<div class="alert alert-error">Fill all fields</div>'; return; }
     btn.disabled = true; btn.textContent = 'Logging in…';
     try {
       const user = await Auth.login(email, password);
-      showToast('Welcome back, ' + user.name + '!');
-      setTimeout(() => { window.location.href = user.role === 'admin' ? 'pages/admin.html' : 'pages/dashboard.html'; }, 600);
+      showToast('Welcome back, ' + (user.name || 'User') + '!');
+      setTimeout(() => {
+        window.location.href = user.role === 'admin' ? 'pages/admin.html' : 'pages/dashboard.html';
+      }, 600);
     } catch(e) {
       alertEl.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
       btn.disabled = false; btn.textContent = 'Login';
@@ -191,7 +211,7 @@
 
   async function doSignup() {
     const alertEl = document.getElementById('signup-alert');
-    const btn = document.getElementById('signup-btn');
+    const btn     = document.getElementById('signup-btn');
     alertEl.innerHTML = '';
     const payload = {
       name:          document.getElementById('reg-name').value.trim(),
@@ -206,7 +226,7 @@
     btn.disabled = true; btn.textContent = 'Creating…';
     try {
       const user = await Auth.register(payload);
-      showToast('Account created! Welcome, ' + user.name);
+      showToast('Account created! Welcome, ' + (user.name || 'User'));
       setTimeout(() => { window.location.href = 'pages/dashboard.html'; }, 600);
     } catch(e) {
       alertEl.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
@@ -215,10 +235,12 @@
   }
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      if (document.getElementById('form-login').classList.contains('active')) doLogin();
-      else doSignup();
-    }
+    if (e.key !== 'Enter') return;
+    const panel = document.getElementById('auth-panel');
+    if (!panel.classList.contains('open')) return;
+    e.preventDefault();
+    if (document.getElementById('form-login').classList.contains('active')) doLogin();
+    else doSignup();
   });
 </script>
 </body>
