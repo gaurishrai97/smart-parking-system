@@ -78,8 +78,8 @@
     <a href="#demo">Live Demo</a>
   </div>
   <div style="display:flex;gap:0.75rem">
-    <button class="btn btn-secondary btn-sm" onclick="openAuth('login')">Login</button>
-    <button class="btn btn-primary btn-sm" onclick="openAuth('signup')">Sign Up</button>
+   <button class="btn btn-secondary btn-sm" onmousedown="event.stopPropagation();openAuth('login')">Login</button>
+<button class="btn btn-primary btn-sm" onmousedown="event.stopPropagation();openAuth('signup')">Sign Up</button>
   </div>
 </nav>
 
@@ -115,8 +115,8 @@
     <button class="close-auth" onclick="closeAuth()">×</button>
     <div class="auth-logo">SmartPark 🅿️</div>
     <div class="auth-tabs">
-      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Login</button>
-      <button class="auth-tab" id="tab-signup" onclick="switchTab('signup')">Sign Up</button>
+      <button class="btn btn-primary" onmousedown="event.stopPropagation();openAuth('signup')">Get Started Free</button>
+<button class="btn btn-secondary" onmousedown="event.stopPropagation();openAuth('login')">Sign In</button>
     </div>
     <div class="auth-form active" id="form-login">
       <div id="login-alert"></div>
@@ -178,10 +178,17 @@
     document.getElementById('auth-panel').classList.remove('open');
   }
 
-  function handleOverlayClick(e) {
-    if (e.target === document.getElementById('auth-panel')) closeAuth();
-  }
-
+ let justOpened = false;
+function openAuth(tab) {
+  justOpened = true;
+  document.getElementById('auth-panel').classList.add('open');
+  switchTab(tab);
+  setTimeout(() => { justOpened = false; }, 300);
+}
+function handleOverlayClick(e) {
+  if (justOpened) return; // ignore clicks right after opening
+  if (e.target === document.getElementById('auth-panel')) closeAuth();
+}
   function switchTab(t) {
     ['login','signup'].forEach(x => {
       document.getElementById('tab-'+x).classList.toggle('active', x===t);
